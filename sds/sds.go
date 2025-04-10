@@ -81,6 +81,10 @@ package sds
 	static void cGoCleanupReliabilityManager(void* rmCtx, void* resp) {
 		CleanupReliabilityManager(rmCtx, (SdsCallBack) GoCallback, resp);
 	}
+
+	static void cGoResetReliabilityManager(void* rmCtx, void* resp) {
+		ResetReliabilityManager(rmCtx, (SdsCallBack) GoCallback, resp);
+	}
 */
 import "C"
 import (
@@ -210,11 +214,11 @@ func (rm *ReliabilityManager) OnEvent(eventStr string) {
 func (rm *ReliabilityManager) Cleanup() error {
 	if rm == nil {
 		err := errors.New("reliability manager is nil")
-		Error("Failed to destroy %v", err)
+		Error("Failed to cleanup %v", err)
 		return err
 	}
 
-	Debug("Destroying %v", rm.name)
+	Debug("Cleaning up %v", rm.name)
 
 	wg := sync.WaitGroup{}
 	var resp = C.allocResp(unsafe.Pointer(&wg))
@@ -226,12 +230,40 @@ func (rm *ReliabilityManager) Cleanup() error {
 
 	if C.getRet(resp) == C.RET_OK {
 		unregisterReliabilityManager(rm)
-		Debug("Successfully destroyed %s", rm.name)
+		Debug("Successfully cleaned up %s", rm.name)
 		return nil
 	}
 
 	errMsg := "error CleanupReliabilityManager: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
-	Error("Failed to destroy %v: %v", rm.name, errMsg)
+	Error("Failed to cleanup %v: %v", rm.name, errMsg)
+
+	return errors.New(errMsg)
+}
+
+func (rm *ReliabilityManager) Reset() error {
+	if rm == nil {
+		err := errors.New("reliability manager is nil")
+		Error("Failed to reset %v", err)
+		return err
+	}
+
+	Debug("Resetting %v", rm.name)
+
+	wg := sync.WaitGroup{}
+	var resp = C.allocResp(unsafe.Pointer(&wg))
+	defer C.freeResp(resp)
+
+	wg.Add(1)
+	C.cGoResetReliabilityManager(rm.rmCtx, resp)
+	wg.Wait()
+
+	if C.getRet(resp) == C.RET_OK {
+		Debug("Successfully resetted %s", rm.name)
+		return nil
+	}
+
+	errMsg := "error ResetReliabilityManager: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	Error("Failed to reset %v: %v", rm.name, errMsg)
 
 	return errors.New(errMsg)
 }
