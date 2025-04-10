@@ -61,6 +61,22 @@ package sds
 		void* ret = NewReliabilityManager(channelId, (SdsCallBack) GoCallback, resp);
 		return ret;
 	}
+
+	static void cGoSetEventCallback(void* rmCtx) {
+		// The 'globalEventCallback' Go function is shared amongst all possible Reliability Manager instances.
+
+		// Given that the 'globalEventCallback' is shared, we pass again the
+		// rmCtx instance but in this case is needed to pick up the correct method
+		// that will handle the event.
+
+		// In other words, for every call libsds makes to globalEventCallback,
+		// the 'userData' parameter will bring the context of the rm that registered
+		// that globalEventCallback.
+
+		// This technique is needed because cgo only allows to export Go functions and not methods.
+
+		SetEventCallback(rmCtx, (SdsCallBack) globalEventCallback, rmCtx);
+	}
 */
 import "C"
 import (
@@ -118,7 +134,7 @@ func NewReliabilityManager(channelId string, rmName string) (*ReliabilityManager
 	rm.rmCtx = C.cGoNewReliabilityManager(cChannelId, resp)
 	wg.Wait()
 
-	// C.cGoWakuSetEventCallback(n.wakuCtx) TODO
+	C.cGoSetEventCallback(rm.rmCtx)
 	registerReliabilityManager(rm)
 
 	Debug("Successfully created WakuNode: %s", rmName)
