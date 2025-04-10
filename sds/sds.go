@@ -77,6 +77,10 @@ package sds
 
 		SetEventCallback(rmCtx, (SdsCallBack) globalEventCallback, rmCtx);
 	}
+
+	static void cGoCleanupReliabilityManager(void* rmCtx, void* resp) {
+		CleanupReliabilityManager(rmCtx, (SdsCallBack) GoCallback, resp);
+	}
 */
 import "C"
 import (
@@ -105,15 +109,15 @@ func GoCallback(ret C.int, msg *C.char, len C.size_t, resp unsafe.Pointer) {
 // ReliabilityManager represents an instance of a nim-sds ReliabilityManager
 type ReliabilityManager struct {
 	rmCtx     unsafe.Pointer
-	rmName    string
+	name      string
 	channelId string
 }
 
-func NewReliabilityManager(channelId string, rmName string) (*ReliabilityManager, error) {
-	Debug("Creating new WakuNode: %v", rmName)
+func NewReliabilityManager(channelId string, name string) (*ReliabilityManager, error) {
+	Debug("Creating new Reliability Manager: %v", name)
 	rm := &ReliabilityManager{
 		channelId: channelId,
-		rmName:    rmName,
+		name:      name,
 	}
 
 	wg := sync.WaitGroup{}
@@ -126,7 +130,7 @@ func NewReliabilityManager(channelId string, rmName string) (*ReliabilityManager
 
 	if C.getRet(resp) != C.RET_OK {
 		errMsg := C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
-		Error("error NewReliabilityManager for %s: %v", rmName, errMsg)
+		Error("error NewReliabilityManager for %s: %v", name, errMsg)
 		return nil, errors.New(errMsg)
 	}
 
@@ -137,7 +141,7 @@ func NewReliabilityManager(channelId string, rmName string) (*ReliabilityManager
 	C.cGoSetEventCallback(rm.rmCtx)
 	registerReliabilityManager(rm)
 
-	Debug("Successfully created WakuNode: %s", rmName)
+	Debug("Successfully created Reliability Manager: %s", name)
 	return rm, nil
 }
 
@@ -168,7 +172,7 @@ func unregisterReliabilityManager(rm *ReliabilityManager) {
 func globalEventCallback(callerRet C.int, msg *C.char, len C.size_t, userData unsafe.Pointer) {
 	if callerRet == C.RET_OK {
 		eventStr := C.GoStringN(msg, C.int(len))
-		rm, ok := rmRegistry[userData] // userData contains node's ctx
+		rm, ok := rmRegistry[userData] // userData contains rm's ctx
 		if ok {
 			rm.OnEvent(eventStr)
 		}
@@ -186,7 +190,7 @@ type jsonEvent struct {
 	EventType string `json:"eventType"`
 }
 
-func (n *ReliabilityManager) OnEvent(eventStr string) {
+func (rm *ReliabilityManager) OnEvent(eventStr string) {
 	jsonEvent := jsonEvent{}
 	err := json.Unmarshal([]byte(eventStr), &jsonEvent)
 	if err != nil {
@@ -201,4 +205,33 @@ func (n *ReliabilityManager) OnEvent(eventStr string) {
 	case "event 2":
 		fmt.Println("-------- received event 1")
 	}
+}
+
+func (rm *ReliabilityManager) Cleanup() error {
+	if rm == nil {
+		err := errors.New("reliability manager is nil")
+		Error("Failed to destroy %v", err)
+		return err
+	}
+
+	Debug("Destroying %v", rm.name)
+
+	wg := sync.WaitGroup{}
+	var resp = C.allocResp(unsafe.Pointer(&wg))
+	defer C.freeResp(resp)
+
+	wg.Add(1)
+	C.cGoCleanupReliabilityManager(rm.rmCtx, resp)
+	wg.Wait()
+
+	if C.getRet(resp) == C.RET_OK {
+		unregisterReliabilityManager(rm)
+		Debug("Successfully destroyed %s", rm.name)
+		return nil
+	}
+
+	errMsg := "error CleanupReliabilityManager: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	Error("Failed to destroy %v: %v", rm.name, errMsg)
+
+	return errors.New(errMsg)
 }
