@@ -113,7 +113,7 @@ package sds
 									char** messageIDs,
                     				size_t count,
 									void* resp) {
-		UnwrapReceivedMessage(rmCtx,
+		MarkDependenciesMet(rmCtx,
 						messageIDs,
 						count,
 						(SdsCallBack) GoCallback,
