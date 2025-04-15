@@ -98,6 +98,16 @@ package sds
 						(SdsCallBack) GoCallback,
 						resp);
 	}
+	static void cGoUnwrapReceivedMessage(void* rmCtx,
+									void* message,
+                    				size_t messageLen,
+									void* resp) {
+		UnwrapReceivedMessage(rmCtx,
+						message,
+						messageLen,
+						(SdsCallBack) GoCallback,
+						resp);
+	}
 */
 import "C"
 import (
@@ -128,17 +138,13 @@ func GoCallback(ret C.int, msg *C.char, len C.size_t, resp unsafe.Pointer) {
 // ReliabilityManager represents an instance of a nim-sds ReliabilityManager
 type ReliabilityManager struct {
 	rmCtx     unsafe.Pointer
-	name      string
 	channelId string
 }
 
-type MessageID string
-
-func NewReliabilityManager(channelId string, name string) (*ReliabilityManager, error) {
-	Debug("Creating new Reliability Manager: %v", name)
+func NewReliabilityManager(channelId string) (*ReliabilityManager, error) {
+	Debug("Creating new Reliability Manager")
 	rm := &ReliabilityManager{
 		channelId: channelId,
-		name:      name,
 	}
 
 	wg := sync.WaitGroup{}
@@ -151,7 +157,7 @@ func NewReliabilityManager(channelId string, name string) (*ReliabilityManager, 
 
 	if C.getRet(resp) != C.RET_OK {
 		errMsg := C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
-		Error("error NewReliabilityManager for %s: %v", name, errMsg)
+		Error("error NewReliabilityManager: %v", errMsg)
 		return nil, errors.New(errMsg)
 	}
 
@@ -162,7 +168,7 @@ func NewReliabilityManager(channelId string, name string) (*ReliabilityManager, 
 	C.cGoSetEventCallback(rm.rmCtx)
 	registerReliabilityManager(rm)
 
-	Debug("Successfully created Reliability Manager: %s", name)
+	Debug("Successfully created Reliability Manager")
 	return rm, nil
 }
 
@@ -235,7 +241,7 @@ func (rm *ReliabilityManager) Cleanup() error {
 		return err
 	}
 
-	Debug("Cleaning up %v", rm.name)
+	Debug("Cleaning up reliability manager")
 
 	wg := sync.WaitGroup{}
 	var resp = C.allocResp(unsafe.Pointer(&wg))
@@ -247,12 +253,12 @@ func (rm *ReliabilityManager) Cleanup() error {
 
 	if C.getRet(resp) == C.RET_OK {
 		unregisterReliabilityManager(rm)
-		Debug("Successfully cleaned up %s", rm.name)
+		Debug("Successfully cleaned up reliability manager")
 		return nil
 	}
 
 	errMsg := "error CleanupReliabilityManager: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
-	Error("Failed to cleanup %v: %v", rm.name, errMsg)
+	Error("Failed to cleanup reliability manager: %v", errMsg)
 
 	return errors.New(errMsg)
 }
@@ -264,7 +270,7 @@ func (rm *ReliabilityManager) Reset() error {
 		return err
 	}
 
-	Debug("Resetting %v", rm.name)
+	Debug("Resetting reliability manager")
 
 	wg := sync.WaitGroup{}
 	var resp = C.allocResp(unsafe.Pointer(&wg))
@@ -275,12 +281,12 @@ func (rm *ReliabilityManager) Reset() error {
 	wg.Wait()
 
 	if C.getRet(resp) == C.RET_OK {
-		Debug("Successfully resetted %s", rm.name)
+		Debug("Successfully resetted reliability manager")
 		return nil
 	}
 
 	errMsg := "error ResetReliabilityManager: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
-	Error("Failed to reset %v: %v", rm.name, errMsg)
+	Error("Failed to reset reliability manager: %v", errMsg)
 
 	return errors.New(errMsg)
 }
@@ -338,6 +344,59 @@ func (rm *ReliabilityManager) WrapOutgoingMessage(message []byte, messageId Mess
 
 	errMsg := "error WrapOutgoingMessage: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
 	Error("Failed to wrap message %v: %v", messageId, errMsg)
+
+	return nil, errors.New(errMsg)
+}
+
+func (rm *ReliabilityManager) UnwrapReceivedMessage(message []byte) (*UnwrappedMessage, error) {
+	if rm == nil {
+		err := errors.New("reliability manager is nil")
+		Error("Failed to unwrap received message %v", err)
+		return nil, err
+	}
+
+	wg := sync.WaitGroup{}
+	var resp = C.allocResp(unsafe.Pointer(&wg))
+	defer C.freeResp(resp)
+
+	var cMessagePtr unsafe.Pointer
+	if len(message) > 0 {
+		cMessagePtr = C.CBytes(message) // C.CBytes allocates memory that needs to be freed
+		defer C.free(cMessagePtr)
+	} else {
+		cMessagePtr = nil
+	}
+	cMessageLen := C.size_t(len(message))
+
+	wg.Add(1)
+	C.cGoUnwrapReceivedMessage(rm.rmCtx, cMessagePtr, cMessageLen, resp)
+	wg.Wait()
+
+	if C.getRet(resp) == C.RET_OK {
+		resStr := C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+		if resStr == "" {
+			Debug("Received empty res string")
+			return nil, nil
+		}
+		Debug("Successfully unwrapped message")
+
+		fmt.Println("------------ UnwrapReceivedMessage res: ", resStr)
+
+		unwrappedMessage := UnwrappedMessage{}
+		err := json.Unmarshal([]byte(resStr), &unwrappedMessage)
+		if err != nil {
+			Error("Failed to unmarshal unwrapped message")
+			return nil, err
+		}
+
+		fmt.Println(unwrappedMessage.Message)
+		fmt.Println(unwrappedMessage.MissingDeps)
+
+		return &unwrappedMessage, nil
+	}
+
+	errMsg := "error UnwrapReceivedMessage: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	Error("Failed to unwrap message: %v", errMsg)
 
 	return nil, errors.New(errMsg)
 }

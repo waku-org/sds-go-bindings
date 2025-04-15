@@ -1,7 +1,6 @@
 package sds
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,22 +8,17 @@ import (
 
 func TestCreateAndCleanup(t *testing.T) {
 
-	rm1, err := NewReliabilityManager("my-channel-id-1", "rm1")
-	require.NoError(t, err)
-
-	rm2, err := NewReliabilityManager("my-channel-id-2", "rm2")
+	rm1, err := NewReliabilityManager("my-channel-id-1")
 	require.NoError(t, err)
 
 	err = rm1.Cleanup()
 	require.NoError(t, err)
 
-	err = rm2.Cleanup()
-	require.NoError(t, err)
 }
 
 func TestReset(t *testing.T) {
 
-	rm, err := NewReliabilityManager("my-channel-id", "rm")
+	rm, err := NewReliabilityManager("my-channel-id")
 	require.NoError(t, err)
 
 	err = rm.Reset()
@@ -35,17 +29,25 @@ func TestReset(t *testing.T) {
 
 }
 
-func TestWrap(t *testing.T) {
-
-	rm, err := NewReliabilityManager("my-channel-id", "rm")
+// Test wrapping and unwrapping a simple message
+func TestWrapUnwrap(t *testing.T) {
+	channelID := "test-wrap-unwrap"
+	rm, err := NewReliabilityManager(channelID)
 	require.NoError(t, err)
 	defer rm.Cleanup()
 
-	msg := []byte{1, 2, 3, 4, 5}
+	originalPayload := []byte("hello reliability")
+	messageID := MessageID("msg-wrap-1")
 
-	res, err := rm.WrapOutgoingMessage(msg, "my-message-id")
+	wrappedMsg, err := rm.WrapOutgoingMessage(originalPayload, messageID)
 	require.NoError(t, err)
 
-	fmt.Println("---------- len(res): ", len(res))
+	require.Greater(t, len(wrappedMsg), 0, "Expected non-empty wrapped message")
 
+	// Simulate receiving the wrapped message
+	unwrappedMessage, err := rm.UnwrapReceivedMessage(wrappedMsg)
+	require.NoError(t, err)
+
+	require.Equal(t, string(*unwrappedMessage.Message), string(originalPayload), "Expected unwrapped and original payloads to be equal")
+	require.Equal(t, len(*unwrappedMessage.MissingDeps), 0, "Expexted to be no missing dependencies")
 }
