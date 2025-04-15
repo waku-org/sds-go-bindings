@@ -108,6 +108,18 @@ package sds
 						(SdsCallBack) GoCallback,
 						resp);
 	}
+
+	static void cGoMarkDependenciesMet(void* rmCtx,
+									char** messageIDs,
+                    				size_t count,
+									void* resp) {
+		UnwrapReceivedMessage(rmCtx,
+						messageIDs,
+						count,
+						(SdsCallBack) GoCallback,
+						resp);
+	}
+
 */
 import "C"
 import (
@@ -380,17 +392,12 @@ func (rm *ReliabilityManager) UnwrapReceivedMessage(message []byte) (*UnwrappedM
 		}
 		Debug("Successfully unwrapped message")
 
-		fmt.Println("------------ UnwrapReceivedMessage res: ", resStr)
-
 		unwrappedMessage := UnwrappedMessage{}
 		err := json.Unmarshal([]byte(resStr), &unwrappedMessage)
 		if err != nil {
 			Error("Failed to unmarshal unwrapped message")
 			return nil, err
 		}
-
-		fmt.Println(unwrappedMessage.Message)
-		fmt.Println(unwrappedMessage.MissingDeps)
 
 		return &unwrappedMessage, nil
 	}
@@ -399,4 +406,51 @@ func (rm *ReliabilityManager) UnwrapReceivedMessage(message []byte) (*UnwrappedM
 	Error("Failed to unwrap message: %v", errMsg)
 
 	return nil, errors.New(errMsg)
+}
+
+// MarkDependenciesMet informs the library that dependencies are met
+func (rm *ReliabilityManager) MarkDependenciesMet(messageIDs []MessageID) error {
+	if rm == nil {
+		err := errors.New("reliability manager is nil")
+		Error("Failed to mark dependencies met %v", err)
+		return err
+	}
+
+	if len(messageIDs) == 0 {
+		return nil // Nothing to do
+	}
+
+	wg := sync.WaitGroup{}
+	var resp = C.allocResp(unsafe.Pointer(&wg))
+	defer C.freeResp(resp)
+
+	// Convert Go string slice to C array of C strings (char**)
+	cMessageIDs := make([]*C.char, len(messageIDs))
+	for i, id := range messageIDs {
+		cMessageIDs[i] = C.CString(string(id))
+		defer C.free(unsafe.Pointer(cMessageIDs[i])) // Ensure each CString is freed
+	}
+
+	// Create a pointer (**C.char) to the first element of the slice
+	var cMessageIDsPtr **C.char
+	if len(cMessageIDs) > 0 {
+		cMessageIDsPtr = &cMessageIDs[0]
+	} else {
+		cMessageIDsPtr = nil // Handle empty slice case
+	}
+
+	wg.Add(1)
+	// Pass the pointer variable (cMessageIDsPtr) directly, which is of type **C.char
+	C.cGoMarkDependenciesMet(rm.rmCtx, cMessageIDsPtr, C.size_t(len(messageIDs)), resp)
+	wg.Wait()
+
+	if C.getRet(resp) == C.RET_OK {
+		Debug("Successfully marked dependencies as met")
+		return nil
+	}
+
+	errMsg := "error MarkDependenciesMet: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	Error("Failed to mark dependencies as met: %v", errMsg)
+
+	return errors.New(errMsg)
 }
