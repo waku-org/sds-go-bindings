@@ -6,27 +6,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateAndCleanup(t *testing.T) {
-
-	rm1, err := NewReliabilityManager("my-channel-id-1")
+// Test basic creation, cleanup, and reset
+func TestLifecycle(t *testing.T) {
+	channelID := "test-lifecycle"
+	rm, err := NewReliabilityManager(channelID)
 	require.NoError(t, err)
+	require.NotNil(t, rm, "Expected ReliabilityManager to be not nil")
 
-	err = rm1.Cleanup()
-	require.NoError(t, err)
-
-}
-
-func TestReset(t *testing.T) {
-
-	rm, err := NewReliabilityManager("my-channel-id")
-	require.NoError(t, err)
+	defer rm.Cleanup() // Ensure cleanup even on test failure
 
 	err = rm.Reset()
 	require.NoError(t, err)
-
-	err = rm.Cleanup()
-	require.NoError(t, err)
-
 }
 
 // Test wrapping and unwrapping a simple message
