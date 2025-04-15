@@ -85,12 +85,27 @@ package sds
 	static void cGoResetReliabilityManager(void* rmCtx, void* resp) {
 		ResetReliabilityManager(rmCtx, (SdsCallBack) GoCallback, resp);
 	}
+
+	static void cGoWrapOutgoingMessage(void* rmCtx,
+									void* message,
+                    				size_t messageLen,
+                    				const char* messageId,
+									void* resp) {
+		WrapOutgoingMessage(rmCtx,
+						message,
+						messageLen,
+						messageId,
+						(SdsCallBack) GoCallback,
+						resp);
+	}
 */
 import "C"
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -116,6 +131,8 @@ type ReliabilityManager struct {
 	name      string
 	channelId string
 }
+
+type MessageID string
 
 func NewReliabilityManager(channelId string, name string) (*ReliabilityManager, error) {
 	Debug("Creating new Reliability Manager: %v", name)
@@ -266,4 +283,61 @@ func (rm *ReliabilityManager) Reset() error {
 	Error("Failed to reset %v: %v", rm.name, errMsg)
 
 	return errors.New(errMsg)
+}
+
+func (rm *ReliabilityManager) WrapOutgoingMessage(message []byte, messageId MessageID) ([]byte, error) {
+	if rm == nil {
+		err := errors.New("reliability manager is nil")
+		Error("Failed to wrap outgoing message %v", err)
+		return nil, err
+	}
+
+	Debug("Wraping outgoing message %v", messageId)
+
+	wg := sync.WaitGroup{}
+	var resp = C.allocResp(unsafe.Pointer(&wg))
+	defer C.freeResp(resp)
+
+	cMessageId := C.CString(string(messageId))
+	defer C.free(unsafe.Pointer(cMessageId))
+
+	var cMessagePtr unsafe.Pointer
+	if len(message) > 0 {
+		cMessagePtr = C.CBytes(message) // C.CBytes allocates memory that needs to be freed
+		defer C.free(cMessagePtr)
+	} else {
+		cMessagePtr = nil
+	}
+	cMessageLen := C.size_t(len(message))
+
+	wg.Add(1)
+	C.cGoWrapOutgoingMessage(rm.rmCtx, cMessagePtr, cMessageLen, cMessageId, resp)
+	wg.Wait()
+
+	if C.getRet(resp) == C.RET_OK {
+		resStr := C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+		if resStr == "" {
+			Debug("Received empty res string for messageId: %v", messageId)
+			return nil, nil
+		}
+		Debug("Successfully wrapped message %s", messageId)
+
+		parts := strings.Split(resStr, ",")
+		bytes := make([]byte, len(parts))
+
+		for i, part := range parts {
+			n, err := strconv.Atoi(strings.TrimSpace(part))
+			if err != nil {
+				panic(err)
+			}
+			bytes[i] = byte(n)
+		}
+
+		return bytes, nil
+	}
+
+	errMsg := "error WrapOutgoingMessage: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	Error("Failed to wrap message %v: %v", messageId, errMsg)
+
+	return nil, errors.New(errMsg)
 }

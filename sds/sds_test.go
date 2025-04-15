@@ -1,6 +1,7 @@
 package sds
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,5 +32,20 @@ func TestReset(t *testing.T) {
 
 	err = rm.Cleanup()
 	require.NoError(t, err)
+
+}
+
+func TestWrap(t *testing.T) {
+
+	rm, err := NewReliabilityManager("my-channel-id", "rm")
+	require.NoError(t, err)
+	defer rm.Cleanup()
+
+	msg := []byte{1, 2, 3, 4, 5}
+
+	res, err := rm.WrapOutgoingMessage(msg, "my-message-id")
+	require.NoError(t, err)
+
+	fmt.Println("---------- len(res): ", len(res))
 
 }
