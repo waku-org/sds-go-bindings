@@ -1,4 +1,4 @@
-module github.com/waku-org/waku-go-bindings
+module github.com/waku-org/sds-go-bindings
 
 go 1.22.10
 

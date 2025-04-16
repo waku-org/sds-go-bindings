@@ -1,4 +1,4 @@
-# Makefile for Waku Go Bindings
+# Makefile for SDS Go Bindings
 
 # Directories
 THIRD_PARTY_DIR := ../third_party
