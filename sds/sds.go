@@ -257,7 +257,7 @@ func (rm *ReliabilityManager) RegisterCallbacks(callbacks EventCallbacks) {
 
 func (rm *ReliabilityManager) OnEvent(eventStr string) {
 
-	fmt.Println("------------------- received event: ", eventStr)
+	fmt.Println("------------------- received event: ", eventStr) // TODO: remove after debugging
 
 	jsonEvent := jsonEvent{}
 	err := json.Unmarshal([]byte(eventStr), &jsonEvent)
@@ -385,7 +385,7 @@ func (rm *ReliabilityManager) WrapOutgoingMessage(message []byte, messageId Mess
 		return nil, err
 	}
 
-	Debug("Wraping outgoing message %v", messageId)
+	Debug("Wrapping outgoing message %v", messageId)
 
 	wg := sync.WaitGroup{}
 	var resp = C.allocResp(unsafe.Pointer(&wg))
