@@ -120,6 +120,10 @@ package sds
 						resp);
 	}
 
+	static void cGoStartPeriodicTasks(void* rmCtx, void* resp) {
+		StartPeriodicTasks(rmCtx, (SdsCallBack) GoCallback, resp);
+	}
+
 */
 import "C"
 import (
@@ -451,6 +455,34 @@ func (rm *ReliabilityManager) MarkDependenciesMet(messageIDs []MessageID) error 
 
 	errMsg := "error MarkDependenciesMet: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
 	Error("Failed to mark dependencies as met: %v", errMsg)
+
+	return errors.New(errMsg)
+}
+
+func (rm *ReliabilityManager) StartPeriodicTasks() error {
+	if rm == nil {
+		err := errors.New("reliability manager is nil")
+		Error("Failed to start periodic tasks %v", err)
+		return err
+	}
+
+	Debug("Starting periodic tasks")
+
+	wg := sync.WaitGroup{}
+	var resp = C.allocResp(unsafe.Pointer(&wg))
+	defer C.freeResp(resp)
+
+	wg.Add(1)
+	C.cGoStartPeriodicTasks(rm.rmCtx, resp)
+	wg.Wait()
+
+	if C.getRet(resp) == C.RET_OK {
+		Debug("Successfully started periodic tasks")
+		return nil
+	}
+
+	errMsg := "error StartPeriodicTasks: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	Error("Failed to start periodic tasks: %v", errMsg)
 
 	return errors.New(errMsg)
 }
