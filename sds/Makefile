@@ -22,6 +22,7 @@ prepare:
 		git clone $(NIM_SDS_REPO) && \
 		cd $(NIM_SDS_DIR) && \
 		git checkout gabrielmer-feat-init-implementation; \
+		make update; \
 	else \
 		echo "nim-sds repository already exists."; \
 	fi
