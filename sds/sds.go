@@ -129,7 +129,6 @@ import "C"
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -256,8 +255,6 @@ func (rm *ReliabilityManager) RegisterCallbacks(callbacks EventCallbacks) {
 }
 
 func (rm *ReliabilityManager) OnEvent(eventStr string) {
-
-	fmt.Println("------------------- received event: ", eventStr) // TODO: remove after debugging
 
 	jsonEvent := jsonEvent{}
 	err := json.Unmarshal([]byte(eventStr), &jsonEvent)

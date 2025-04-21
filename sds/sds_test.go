@@ -343,7 +343,7 @@ func TestCallback_OnPeriodicSync(t *testing.T) {
 func TestCallbacks_Combined(t *testing.T) {
 	channelID := "test-cb-combined"
 
-	// Create sender and receiver handles
+	// Create sender and receiver RMs
 	senderRm, err := NewReliabilityManager(channelID)
 	require.NoError(t, err)
 	defer senderRm.Cleanup()
@@ -381,7 +381,7 @@ func TestCallbacks_Combined(t *testing.T) {
 			t.Errorf("Unexpected OnMessageSent call on Receiver for %s", messageId)
 		},
 		OnMissingDependencies: func(messageId MessageID, missingDeps []MessageID) {
-			// This callback is registered on Receiver, used for handleReceiver2 below
+			// This callback is registered on Receiver, used for receiverRm2 below
 		},
 	}
 
