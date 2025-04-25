@@ -320,7 +320,7 @@ func (rm *ReliabilityManager) parseMissingDepsEvent(eventStr string) {
 
 func (rm *ReliabilityManager) Cleanup() error {
 	if rm == nil {
-		err := errors.New("reliability manager is nil")
+		err := errors.New("reliability manager is nil in Cleanup")
 		Error("Failed to cleanup %v", err)
 		return err
 	}
@@ -349,7 +349,7 @@ func (rm *ReliabilityManager) Cleanup() error {
 
 func (rm *ReliabilityManager) Reset() error {
 	if rm == nil {
-		err := errors.New("reliability manager is nil")
+		err := errors.New("reliability manager is nil in Reset")
 		Error("Failed to reset %v", err)
 		return err
 	}
@@ -377,7 +377,7 @@ func (rm *ReliabilityManager) Reset() error {
 
 func (rm *ReliabilityManager) WrapOutgoingMessage(message []byte, messageId MessageID) ([]byte, error) {
 	if rm == nil {
-		err := errors.New("reliability manager is nil")
+		err := errors.New("reliability manager is nil in WrapOutgoingMessage")
 		Error("Failed to wrap outgoing message %v", err)
 		return nil, err
 	}
@@ -434,7 +434,7 @@ func (rm *ReliabilityManager) WrapOutgoingMessage(message []byte, messageId Mess
 
 func (rm *ReliabilityManager) UnwrapReceivedMessage(message []byte) (*UnwrappedMessage, error) {
 	if rm == nil {
-		err := errors.New("reliability manager is nil")
+		err := errors.New("reliability manager is nil in UnwrapReceivedMessage")
 		Error("Failed to unwrap received message %v", err)
 		return nil, err
 	}
@@ -483,7 +483,7 @@ func (rm *ReliabilityManager) UnwrapReceivedMessage(message []byte) (*UnwrappedM
 // MarkDependenciesMet informs the library that dependencies are met
 func (rm *ReliabilityManager) MarkDependenciesMet(messageIDs []MessageID) error {
 	if rm == nil {
-		err := errors.New("reliability manager is nil")
+		err := errors.New("reliability manager is nil in MarkDependenciesMet")
 		Error("Failed to mark dependencies met %v", err)
 		return err
 	}
@@ -529,7 +529,7 @@ func (rm *ReliabilityManager) MarkDependenciesMet(messageIDs []MessageID) error 
 
 func (rm *ReliabilityManager) StartPeriodicTasks() error {
 	if rm == nil {
-		err := errors.New("reliability manager is nil")
+		err := errors.New("reliability manager is nil in StartPeriodicTasks")
 		Error("Failed to start periodic tasks %v", err)
 		return err
 	}
