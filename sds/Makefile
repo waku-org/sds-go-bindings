@@ -11,7 +11,6 @@ NIM_SDS_DIR := $(THIRD_PARTY_DIR)/nim-sds
 all: build
 
 # Prepare third_party directory and clone nim-sds
-# TODO: remove the "git checkout gabrielmer-feat-init-implementation" part
 prepare:
 	@echo "Creating third_party directory..."
 	@mkdir -p $(THIRD_PARTY_DIR)
@@ -21,7 +20,7 @@ prepare:
 		cd $(THIRD_PARTY_DIR) && \
 		git clone $(NIM_SDS_REPO) && \
 		cd $(NIM_SDS_DIR) && \
-		git checkout feat-init-implementation; \
+		git checkout master; \
 		make update; \
 	else \
 		echo "nim-sds repository already exists."; \
